@@ -53,13 +53,5 @@ Ao final, o resultado é salvo em `output/analise_marketing_final.csv` por padr�
 - O script já faz detecção de caminho robusta (usa `pathlib`), independente do CWD.
 - Caso queira que eu converta prints para `logging`, extraia funções para testes unitários (pytest) ou acrescente um notebook `.ipynb` com visualizações, diga e eu faço.
 
-## Licença
-
-Coloque uma licença aqui se quiser. Se não, posso sugerir MIT/Apache-2.0.
-
 ---
-Feito por: Dashboard Marketing
-=======
-# dashboard-marketing
-Dashbord em Power BI que usa o algoritmo k-means para identificação de padrões de compra e criação de personas para análise de Return on Investment
->>>>>>> 0a096c989178efbdbac6c8898f17a8e98809dffb
+Feito por: Vitor Nonato
