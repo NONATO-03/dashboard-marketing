@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Dashboard Marketing
 
 Repositório com scripts e notebooks para análise de campanhas de marketing e segmentação de clientes.
@@ -7,7 +6,7 @@ Repositório com scripts e notebooks para análise de campanhas de marketing e s
 
 - `divisao.py`: script de extração que lê o arquivo de dados e gera arquivos CSV que simulam tabelas (Dim_Cliente, Fact_Compras, Fact_Comportamento).
 - `notebook/analise_segmentacao_rfm`: script/notebook com pipeline de limpeza, engenharia de features e clusterização RFM (gera `output/analise_marketing_final.csv` ou `.xlsx`).
-- `dados/marketing_campaign.csv`: arquivo de dados original (não incluído no commit se estiver no `.gitignore`).
+- `dados/marketing_campaign.csv`: arquivo de dados original 
 
 ## Requisitos
 
