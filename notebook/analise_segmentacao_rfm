@@ -1,0 +1,152 @@
+import pandas as pd
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+import datetime as dt
+import os
+from pathlib import Path
+
+# Caminho 
+delimiter = ';'
+data_file = Path(__file__).resolve().parent.parent / 'dados' / 'marketing_campaign.csv'
+file_path = data_file
+
+# Carregar e limpar 
+try:
+    if not data_file.exists():
+        dados_dir = data_file.parent
+        candidates = list(dados_dir.glob('*')) if dados_dir.exists() else []
+        print(f"Arquivo não encontrado: {data_file}")
+        if candidates:
+            print("Arquivos encontrados")
+            for p in candidates:
+                print(" -", p.name)
+        else:
+            print("Diretório 'dados' está vazio ou é inexistente.")
+        raise FileNotFoundError(f"Arquivo não encontrado: {data_file}")
+
+    df = pd.read_csv(data_file, sep=delimiter)
+    df = df.drop(columns=['Z_CostContact', 'Z_Revenue'], errors='ignore')
+    
+except FileNotFoundError:
+    # já tratado acima re-raise para manter comportamento
+    raise
+except Exception as e:
+    print(f"Falha ao ler csv: {e}")
+    raise
+
+print(f"Dados iniciais: {df.shape[0]} linhas.")
+
+# Tratamento 
+
+# Valores Nulos 
+df['Income'].fillna(df['Income'].median(), inplace=True)
+
+# Outliers
+df = df[df['Income'] < df['Income'].quantile(0.995)] 
+ano_atual = dt.datetime.now().year
+df['Age'] = ano_atual - df['Year_Birth']
+df = df[df['Age'] < 100] 
+
+# Conversão 
+try:
+    df['Dt_Customer'] = pd.to_datetime(df['Dt_Customer'], format='%Y-%m-%d')
+except:
+    # Se o formato for diferente
+    df['Dt_Customer'] = pd.to_datetime(df['Dt_Customer'], errors='coerce') 
+
+print(f"Linhas após tratamento de outliers/nulos: {df.shape[0]} linhas.")
+
+
+# Features (KPIs)
+
+# Gasto Total (Monetary Value - M)
+mnt_cols = [col for col in df.columns if 'Mnt' in col]
+df['Total_Spent'] = df[mnt_cols].sum(axis=1)
+
+# Frequência Total de Compras (Frequency - F)
+num_purchase_cols = [col for col in df.columns if 'Num' in col and 'Purchases' in col]
+df['Total_Purchases'] = df[num_purchase_cols].sum(axis=1)
+
+# Taxa de Aceite de Campanhas
+cmp_cols = [col for col in df.columns if 'AcceptedCmp' in col]
+df['Total_Cmp_Accepted'] = df[cmp_cols].sum(axis=1)
+
+# Status Marital 
+df['Marital_Status_Group'] = df['Marital_Status'].replace({
+    'YOLO': 'Single', 'Absurd': 'Single', 'Alone': 'Single',
+    'Together': 'In Couple',
+    'Married': 'In Couple'
+})
+df['Marital_Status_Group'] = df['Marital_Status_Group'].replace({'Divorced': 'Single', 'Widow': 'Single'})
+print("Features de KPI e agrupamentos criados.")
+
+
+# Mineração e modelagem (Cluster RFM) 
+
+# Seleção e Padronização das Variáveis RFM 
+rfm_df = df[['Recency', 'Total_Purchases', 'Total_Spent']].copy()
+scaler = StandardScaler()
+rfm_scaled = scaler.fit_transform(rfm_df)
+
+# K-Means
+n_clusters = 4 
+kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+df['Cluster'] = kmeans.fit_predict(rfm_scaled)
+
+
+# Análise e atribuição de nomes para os clusters
+
+# Calculo de métricas médias de cada cluster
+cluster_analysis = df.groupby('Cluster')[['Recency', 'Total_Purchases', 'Total_Spent', 'Response']].mean().sort_values(by='Total_Spent', ascending=False)
+
+print("\nAnálise Média dos Clusters (Métricas de Negócio):")
+print(cluster_analysis.to_string())
+
+# Mapeamento de nomes
+# Usamos a ordem de índices do cluster_analysis que está ordenado por MAIOR Total_Spent para ver se os nomes estão certos
+segment_map = {
+    cluster_analysis.index[0]: 'Fieis',               # Maior Gasto Total
+    cluster_analysis.index[1]: 'Antigos fieis', # Segundo maior Gasto
+    cluster_analysis.index[2]: 'Promissores', # Terceiro maior Gasto
+    cluster_analysis.index[3]: 'Inativo'      # Menor Gasto Total
+}
+
+# Aplicar o mapeamento de nome
+df['Segmento_RFM'] = df['Cluster'].map(segment_map)
+print("\nSegmentação RFM concluída e nomes de negócio atribuídos(1).")
+
+
+# Gerar arquivo
+
+# Lista de colunas de Gasto por Produto 
+mnt_cols_final = [col for col in df.columns if 'Mnt' in col]
+
+# Lista de colunas de Compra por Canal 
+num_cols_final = [col for col in df.columns if 'Num' in col and 'Purchases' in col]
+
+final_cols = ['ID', 'Age', 'Education', 'Marital_Status_Group', 'Income', 'Kidhome', 'Teenhome', 
+             'Dt_Customer', 'Recency', 'Total_Spent', 'Total_Purchases', 'Response', 
+             'Total_Cmp_Accepted', 'Segmento_RFM'] + mnt_cols_final + num_cols_final
+df_final = df[final_cols]
+
+# salva em output/ e cria se não existir
+output_dir = 'output'
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+output_xlsx = os.path.join(output_dir, 'analise_marketing_final.xlsx')
+output_csv = os.path.join(output_dir, 'analise_marketing_final.csv')
+
+try:
+    # .xlsx 
+    df_final.to_excel(output_xlsx, index=False)
+    print(f"Arquivo criado com colunas Mnt/Num: {output_xlsx}")
+except ModuleNotFoundError as e:
+    # Fallback 
+    msg = str(e)
+    if 'openpyxl' in msg or 'openpyxl' in getattr(e, 'name', ''):
+        df_final.to_csv(output_csv, index=False, sep=';')
+        print(f"Arquivo CSV criado com colunas Mnt/Num: {output_csv}")
+    else:
+        raise
