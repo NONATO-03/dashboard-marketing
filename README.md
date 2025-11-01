@@ -48,10 +48,5 @@ python .\notebook\analise_segmentacao_rfm
 
 Ao final, o resultado é salvo em `output/analise_marketing_final.csv` por padrão. Se `openpyxl` estiver instalado, o script tentará salvar em `.xlsx`.
 
-## Notas e melhorias
-
-- O script já faz detecção de caminho robusta (usa `pathlib`), independente do CWD.
-- Caso queira que eu converta prints para `logging`, extraia funções para testes unitários (pytest) ou acrescente um notebook `.ipynb` com visualizações, diga e eu faço.
-
 ---
 Feito por: Vitor Nonato
